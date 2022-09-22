@@ -16,6 +16,127 @@
 .PRIVATEDATA
 .DESCRIPTION This function sends a series of character keystrokse to a particular vSphere VM
 #>
+
+# Map subset of USB HID keyboard scancodes
+# https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2
+$hidCharacterMap = @{
+    "a"             = "0x04";
+    "b"             = "0x05";
+    "c"             = "0x06";
+    "d"             = "0x07";
+    "e"             = "0x08";
+    "f"             = "0x09";
+    "g"             = "0x0a";
+    "h"             = "0x0b";
+    "i"             = "0x0c";
+    "j"             = "0x0d";
+    "k"             = "0x0e";
+    "l"             = "0x0f";
+    "m"             = "0x10";
+    "n"             = "0x11";
+    "o"             = "0x12";
+    "p"             = "0x13";
+    "q"             = "0x14";
+    "r"             = "0x15";
+    "s"             = "0x16";
+    "t"             = "0x17";
+    "u"             = "0x18";
+    "v"             = "0x19";
+    "w"             = "0x1a";
+    "x"             = "0x1b";
+    "y"             = "0x1c";
+    "z"             = "0x1d";
+    "1"             = "0x1e";
+    "2"             = "0x1f";
+    "3"             = "0x20";
+    "4"             = "0x21";
+    "5"             = "0x22";
+    "6"             = "0x23";
+    "7"             = "0x24";
+    "8"             = "0x25";
+    "9"             = "0x26";
+    "0"             = "0x27";
+    "!"             = "0x1e";
+    "@"             = "0x1f";
+    "#"             = "0x20";
+    "$"             = "0x21";
+    "%"             = "0x22";
+    "^"             = "0x23";
+    "&"             = "0x24";
+    "*"             = "0x25";
+    "("             = "0x26";
+    ")"             = "0x27";
+    "_"             = "0x2d";
+    "+"             = "0x2e";
+    "{"             = "0x2f";
+    "}"             = "0x30";
+    "|"             = "0x31";
+    ":"             = "0x33";
+    "`""            = "0x34";
+    "~"             = "0x35";
+    "<"             = "0x36";
+    ">"             = "0x37";
+    "?"             = "0x38";
+    "-"             = "0x2d";
+    "="             = "0x2e";
+    "["             = "0x2f";
+    "]"             = "0x30";
+    "\"             = "0x31";
+    "`;"            = "0x33";
+    "`'"            = "0x34";
+    ","             = "0x36";
+    "."             = "0x37";
+    "/"             = "0x38";
+    " "             = "0x2c";
+    "F1"            = "0x3a";
+    "F2"            = "0x3b";
+    "F3"            = "0x3c";
+    "F4"            = "0x3d";
+    "F5"            = "0x3e";
+    "F6"            = "0x3f";
+    "F7"            = "0x40";
+    "F8"            = "0x41";
+    "F9"            = "0x42";
+    "F10"           = "0x43";
+    "F11"           = "0x44";
+    "F12"           = "0x45";
+    "TAB"           = "0x2b";
+    "KeyUp"         = "0x52";
+    "KeyDown"       = "0x51";
+    "KeyLeft"       = "0x50";
+    "KeyRight"      = "0x4f";
+    "KeyESC"        = "0x29";
+    "KeyBackSpace"  = "0x2a";
+    "KeyEnter"      = "0x28";
+}
+
+$commands = @(
+    'Set-VMKeystrokes'
+)
+
+Register-ArgumentCompleter -CommandName $commands -ParameterName SpecialKeyInput -ScriptBlock {
+    param ($commandName, $wordToCompletes)
+
+    switch ($commandName) {
+        'Set-VMKeystrokes' { 
+           
+           #Match character map objects that are upper or lowercase letters only and are more than a single character length -- leaving us with only TAB and any of the Key* labeles items from the list
+           $filter = {($_ -Match "([a-zA-Z]+$)" -and $_.Length -gt 1)}
+        }
+        default { $filter = { $_ } }
+    }
+
+    $hidCharacterMap.Keys.Where($filter) |
+    Where-Object { $_ -like "$wordToComplete*" } | Sort-Object -Unique |
+    ForEach-Object {
+        $completionText = if ($_ -match '\s') { "'$_'" } else { $_ }
+
+        [System.Management.Automation.CompletionResult]::new(
+            $completionText, $_, 'ParameterValue', $_
+        )
+    }
+}
+
 Function Set-VMKeystrokes {
 <#
     .NOTES
@@ -67,100 +188,7 @@ Function Set-VMKeystrokes {
         [Parameter(Mandatory = $false)][Boolean]$ReturnCarriage,
         [Parameter(Mandatory = $false)][Boolean]$DebugOn
     )
-
-    # Map subset of USB HID keyboard scancodes
-    # https://gist.github.com/MightyPork/6da26e382a7ad91b5496ee55fdc73db2
-    $hidCharacterMap = @{
-        "a"            = "0x04";
-        "b"            = "0x05";
-        "c"            = "0x06";
-        "d"            = "0x07";
-        "e"            = "0x08";
-        "f"            = "0x09";
-        "g"            = "0x0a";
-        "h"            = "0x0b";
-        "i"            = "0x0c";
-        "j"            = "0x0d";
-        "k"            = "0x0e";
-        "l"            = "0x0f";
-        "m"            = "0x10";
-        "n"            = "0x11";
-        "o"            = "0x12";
-        "p"            = "0x13";
-        "q"            = "0x14";
-        "r"            = "0x15";
-        "s"            = "0x16";
-        "t"            = "0x17";
-        "u"            = "0x18";
-        "v"            = "0x19";
-        "w"            = "0x1a";
-        "x"            = "0x1b";
-        "y"            = "0x1c";
-        "z"            = "0x1d";
-        "1"            = "0x1e";
-        "2"            = "0x1f";
-        "3"            = "0x20";
-        "4"            = "0x21";
-        "5"            = "0x22";
-        "6"            = "0x23";
-        "7"            = "0x24";
-        "8"            = "0x25";
-        "9"            = "0x26";
-        "0"            = "0x27";
-        "!"            = "0x1e";
-        "@"            = "0x1f";
-        "#"            = "0x20";
-        "$"            = "0x21";
-        "%"            = "0x22";
-        "^"            = "0x23";
-        "&"            = "0x24";
-        "*"            = "0x25";
-        "("            = "0x26";
-        ")"            = "0x27";
-        "_"            = "0x2d";
-        "+"            = "0x2e";
-        "{"            = "0x2f";
-        "}"            = "0x30";
-        "|"            = "0x31";
-        ":"            = "0x33";
-        "`""           = "0x34";
-        "~"            = "0x35";
-        "<"            = "0x36";
-        ">"            = "0x37";
-        "?"            = "0x38";
-        "-"            = "0x2d";
-        "="            = "0x2e";
-        "["            = "0x2f";
-        "]"            = "0x30";
-        "\"            = "0x31";
-        "`;"           = "0x33";
-        "`'"           = "0x34";
-        ","            = "0x36";
-        "."            = "0x37";
-        "/"            = "0x38";
-        " "            = "0x2c";
-        "F1"           = "0x3a";
-        "F2"           = "0x3b";
-        "F3"           = "0x3c";
-        "F4"           = "0x3d";
-        "F5"           = "0x3e";
-        "F6"           = "0x3f";
-        "F7"           = "0x40";
-        "F8"           = "0x41";
-        "F9"           = "0x42";
-        "F10"          = "0x43";
-        "F11"          = "0x44";
-        "F12"          = "0x45";
-        "TAB"          = "0x2b";
-        "KeyUp"        = "0x52";
-        "KeyDown"      = "0x51";
-        "KeyLeft"      = "0x50";
-        "KeyRight"     = "0x4f";
-        "KeyESC"       = "0x29";
-        "KeyBackSpace" = "0x2a";
-        "KeyEnter"     = "0x28";
-    }
-
+    
     $vm = Get-View -ViewType VirtualMachine -Filter @{"Name" = "^$($VMName)$" }
 
     # Verify we have a VM or fail
